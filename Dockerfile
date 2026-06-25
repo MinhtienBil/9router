@@ -5,11 +5,11 @@ WORKDIR /app
 
 FROM base AS builder
 
-RUN apk --no-cache upgrade && apk --no-cache add python3 make g++ linux-headers
+RUN apk --no-cache upgrade
 
 COPY package.json ./
 RUN --mount=type=cache,target=/root/.npm \
-  npm install
+  npm install --no-optional
 
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -25,6 +25,9 @@ ENV PORT=20128
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
+# The application data store is PostgreSQL. Provide the connection string at
+# runtime, e.g. `docker run -e DATABASE_URL=postgres://user:pass@host:5432/db ...`.
+# DATA_DIR above is still used for logs, MITM certs and DB export backups.
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static

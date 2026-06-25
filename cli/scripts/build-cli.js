@@ -162,37 +162,10 @@ if (fs.existsSync(customServerSrc)) {
   console.warn("⚠️  custom-server.js not found — server will run without real-IP injection\n");
 }
 
-// Step 3b: Ensure sql.js (pure JS fallback) bundled in app/cli/app/node_modules.
-// Strip better-sqlite3 (native) — it lives in ~/.9router/runtime to avoid
-// Windows EBUSY during global CLI updates. node:sqlite (Node ≥22.5) is also
-// available as a no-install middle tier.
-console.log("3️⃣ b Configuring SQLite drivers...");
-function ensureModuleInBundle(pkg) {
-  const dest = path.join(cliAppDir, "node_modules", pkg);
-  if (fs.existsSync(dest)) {
-    console.log(`✅ ${pkg} already bundled`);
-    return;
-  }
-  const candidates = [
-    path.join(appDir, "node_modules", pkg),
-    path.join(rootDir, "node_modules", pkg),
-  ];
-  const src = candidates.find((p) => fs.existsSync(p));
-  if (!src) {
-    console.warn(`⚠️  ${pkg} not found locally — bundle will rely on node:sqlite or runtime install`);
-    return;
-  }
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  copyRecursive(src, dest);
-  console.log(`✅ Bundled ${pkg}`);
-}
-ensureModuleInBundle("sql.js");
-const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
-if (fs.existsSync(betterDir)) {
-  fs.rmSync(betterDir, { recursive: true, force: true });
-  console.log("✅ Stripped better-sqlite3 (lives in ~/.9router/runtime)");
-}
-console.log("");
+// Step 3b: The application data store is PostgreSQL (the `pg` client is declared
+// in serverExternalPackages, so Next's standalone output tracing copies it and
+// its dependencies into the bundled node_modules). No native SQLite drivers are
+// bundled or stripped any more.
 
 // Step 4: Copy static files
 console.log("4️⃣  Copying static files...");

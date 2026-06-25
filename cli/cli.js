@@ -43,14 +43,8 @@ function createSpinner(text) {
 }
 
 const pkg = require("./package.json");
-const { ensureSqliteRuntime, buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
 const { ensureTrayRuntime } = require("./hooks/trayRuntime");
 const args = process.argv.slice(2);
-
-// Self-heal SQLite runtime deps (sql.js + better-sqlite3) into ~/.9router/runtime
-// so the server can resolve them via NODE_PATH. Best-effort — sql.js is required,
-// better-sqlite3 is optional. Logs to stderr only on failure.
-try { ensureSqliteRuntime({ silent: true }); } catch {}
 
 // Self-heal tray runtime (systray for macOS/Linux only). Windows skipped.
 try { ensureTrayRuntime({ silent: true }); } catch {}
@@ -580,7 +574,7 @@ function startServer(latestVersion) {
       detached: true,
       windowsHide: true,
       env: {
-        ...buildEnvWithRuntime(process.env),
+        ...process.env,
         PORT: port.toString(),
         HOSTNAME: host
       }

@@ -622,8 +622,8 @@ export default function ProfilePage() {
           <div className="flex flex-col gap-3 pt-4 border-t border-border">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-bg border border-border gap-2">
               <div>
-                <p className="font-medium text-sm sm:text-base">Database Location</p>
-                <p className="text-xs sm:text-sm text-text-muted font-mono break-all">~/.9router/db/data.sqlite</p>
+                <p className="font-medium text-sm sm:text-base">Database</p>
+                <p className="text-xs sm:text-sm text-text-muted font-mono break-all">PostgreSQL — configured via DATABASE_URL</p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">

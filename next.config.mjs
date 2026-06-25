@@ -13,7 +13,7 @@ const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite"],
+  serverExternalPackages: ["pg"],
   turbopack: {
     root: tracingRoot
   },
@@ -32,16 +32,15 @@ const nextConfig = {
     serverComponentsHmrCache: true,
   },
   webpack: (config, { isServer }) => {
-    // Native modules that may not be installed (optional). serverExternalPackages
-    // above is the framework-level setting, but webpack may still try to resolve
-    // them through dynamic imports in server source files. Mark them as external
-    // so webpack leaves require() calls at runtime instead of bundling.
+    // Mark native/optional modules as external so webpack leaves require() calls
+    // at runtime instead of bundling them. `pg` is the PostgreSQL client;
+    // `better-sqlite3` is optional and only used by the Cursor token auto-import
+    // route (reads Cursor's own SQLite file) — it may be absent at runtime.
     if (isServer) {
       config.externals = [
         ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
+        "pg",
         "better-sqlite3",
-        "sql.js",
-        "bun:sqlite",
       ];
     }
     // Ignore fs/path modules in browser bundle
