@@ -180,7 +180,7 @@ const SECTIONS = [
         path: "/api/usage/unavailable-accounts",
         title: "Danh sách email Codex có Usage API lỗi 401",
         description:
-          "Chỉ kiểm tra account Codex đang active. Trả về mảng email khi tìm thấy; trả HTTP 404 để caller dừng ngay nếu không có account phù hợp. Dùng includeInactive=1 nếu cần kiểm tra cả account đã tắt.",
+          "Đọc trạng thái gần nhất do chat quota/auth guard lưu trong SQLite, không gọi upstream nên chạy nhanh với hàng nghìn account. Chỉ lấy account Codex đang active có trạng thái unavailable/401. Trả HTTP 404 để caller dừng ngay nếu không có account phù hợp. Dùng includeInactive=1 nếu cần lấy cả account đã tắt.",
         curl: `curl ${BASE_URL}/api/usage/unavailable-accounts \\
   -H "Authorization: Bearer $9ROUTER_API_KEY"`,
         response: `HTTP 200
