@@ -24,6 +24,7 @@ import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
 import { stripModelContextMarker } from "open-sse/utils/modelMarkers.js";
+import { checkCodexQuotaBeforeChat } from "../services/codexQuotaGuard.js";
 
 /**
  * Handle chat completion request
@@ -256,6 +257,30 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // Account selection shown in the unified "▶" line (acc:...)
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
 
+    // Codex auth/quota failures are account-wide. Verify them before sending a
+    // chat request, persist a global lock, then move directly to the next account.
+    if (provider === "codex") {
+      const quotaStatus = await checkCodexQuotaBeforeChat(refreshedCredentials);
+      if (!quotaStatus.available) {
+        await markAccountUnavailable(
+          credentials.connectionId,
+          quotaStatus.status,
+          quotaStatus.error,
+          provider,
+          null,
+          quotaStatus.resetsAtMs,
+        );
+        if (preferredConnectionId) {
+          return errorResponse(quotaStatus.status, quotaStatus.error);
+        }
+        excludeConnectionIds.add(credentials.connectionId);
+        lastError = quotaStatus.error;
+        lastStatus = quotaStatus.status;
+        log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} QUOTA/AUTH BLOCKED (${quotaStatus.status}) → NEXT ACCOUNT`);
+        continue;
+      }
+    }
+
     // Ensure real project ID is available for providers that need it (P0 fix: cold miss)
     if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId) {
       const pid = await getProjectIdForConnection(credentials.connectionId, refreshedCredentials.accessToken, provider);
@@ -316,6 +341,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // Antigravity 409/429: refresh live quota to get exact resetAt before locking
     let quotaResetMs = null;
     let resetsAtMs = result.resetsAtMs;
+    let lockStatus = result.status;
+    let lockError = result.error;
     if (provider === "antigravity" && (result.status === 409 || result.status === 429)) {
       quotaResetMs = await handleAntigravityQuotaError(
         credentials.connectionId, result.status, model,
@@ -324,11 +351,26 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       if (quotaResetMs) resetsAtMs = quotaResetMs;
     }
 
+    // A cached healthy quota can become stale between requests. Confirm Codex
+    // auth/quota errors immediately and use the live reset time for the DB lock.
+    let codexQuotaStatus = null;
+    if (provider === "codex" && (result.status === 401 || result.status === 429)) {
+      codexQuotaStatus = await checkCodexQuotaBeforeChat(refreshedCredentials, { force: true });
+      if (!codexQuotaStatus.available) {
+        lockStatus = codexQuotaStatus.status;
+        lockError = codexQuotaStatus.error;
+        resetsAtMs = codexQuotaStatus.resetsAtMs || resetsAtMs;
+      }
+    }
+
     // Exhausted Antigravity model is blocked only in RAM cache until upstream resetAt.
     // Do not persist a modelLock_* for this path.
+    const lockModel = provider === "codex" && (result.status === 401 || codexQuotaStatus?.available === false)
+      ? null
+      : model;
     const shouldFallback = provider === "antigravity" && quotaResetMs
       ? true
-      : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
+      : (await markAccountUnavailable(credentials.connectionId, lockStatus, lockError, provider, lockModel, resetsAtMs)).shouldFallback;
 
     if (shouldFallback) {
       if (preferredConnectionId) return result.response;

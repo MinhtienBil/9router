@@ -170,6 +170,27 @@ const SECTIONS = [
       },
     ],
   },
+  {
+    id: "codex-account-status",
+    title: "Codex Account Status",
+    description: "Kiểm tra các tài khoản Codex có Usage API trả về lỗi xác thực.",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/usage/unavailable-accounts",
+        title: "Danh sách email Codex có Usage API lỗi 401",
+        description:
+          "Chỉ kiểm tra account Codex đang active. Trả về mảng email khi tìm thấy; trả HTTP 404 để caller dừng ngay nếu không có account phù hợp. Dùng includeInactive=1 nếu cần kiểm tra cả account đã tắt.",
+        curl: `curl ${BASE_URL}/api/usage/unavailable-accounts \\
+  -H "Authorization: Bearer $9ROUTER_API_KEY"`,
+        response: `HTTP 200
+["account1@example.com", "account2@example.com"]
+
+HTTP 404
+{ "error": "No matching Codex accounts found" }`,
+      },
+    ],
+  },
 ];
 
 function CodeBlock({ code, copy, copied, active }) {
@@ -241,7 +262,7 @@ export default function ApiDocsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-text-main">API Docs</h1>
         <p className="text-sm text-text-muted mt-1">
-          Các API quan trọng: luồng import Codex và completions.
+          Các API quan trọng: import Codex, kiểm tra account và completions.
         </p>
       </div>
 
@@ -261,7 +282,8 @@ export default function ApiDocsPage() {
           <li>
             Endpoint <code className="font-mono">/v1/*</code> dùng key qua header{" "}
             <code className="font-mono">Authorization: Bearer</code>; các endpoint quản trị{" "}
-            <code className="font-mono">/api/oauth/*</code> chấp nhận cùng key (hoặc session
+            <code className="font-mono">/api/oauth/*</code> và{" "}
+            <code className="font-mono">/api/usage/*</code> chấp nhận cùng key (hoặc session
             cookie dashboard).
           </li>
         </ul>
